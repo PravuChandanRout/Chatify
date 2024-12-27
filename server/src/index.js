@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import bodyParser from "body-parser";
 
 import { connectDB } from "./lib/db.js";
 import authRoutes from "./routes/auth.route.js";
@@ -20,6 +21,7 @@ app.use(
     credentials: true,
   })
 );
+app.use(bodyParser.urlencoded({extended:true, parameterLimit:100000,limit:"10mb"}))
 
 app.use("/api/auth", authRoutes);
 app.use("/api/message", messageRoutes);
