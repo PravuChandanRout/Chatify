@@ -1,7 +1,7 @@
 import cloudinary from "../lib/cloudinary.js";
-import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 // signup api
 export const signup = async (req, res) => {
@@ -31,7 +31,9 @@ export const signup = async (req, res) => {
 
     if (newUser) {
       //generating jwt token
-      generateToken(newUser._id, res);
+      const token = jwt.sign({ newUser._id }, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
 
       await newUser.save();
 
@@ -40,6 +42,7 @@ export const signup = async (req, res) => {
         fullName: newUser.fullName,
         email: newUser.email,
         profilePic: newUser.profilePic,
+        token,
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -65,13 +68,17 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Incorrect Password" });
     }
 
-    generateToken(user._id, res);
+    //generating jwt token
+    const token = jwt.sign({ newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     res.status(200).json({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       profilePic: user.profilePic,
+      token,
     });
   } catch (error) {
     console.log("Error in login controller", error.message);
