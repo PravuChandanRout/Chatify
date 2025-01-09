@@ -7,6 +7,7 @@ const backendURL = "https://chatify-backend-60ft.onrender.com";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
+  token: null,
   isSigningUp: false,
   isLoggingIn: false,
   isUpdatingProfile: false,
@@ -14,15 +15,21 @@ export const useAuthStore = create((set, get) => ({
   onlineUsers: [],
   socket: null,
 
+  setToken: (token) => set({ token }),
+
   checkAuth: async () => {
     try {
-      const res = await axiosInstance.get("/auth/check");
+      const token = localStorage.getItem("authToken");
+      if (!token) throw new Error("No token found");
 
-      set({ authUser: res.data });
+      axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      const res = await axiosInstance.get("/auth/check");
+      set({ authUser: res.data, token });
       get().connectSocket();
     } catch (error) {
       console.log("Error in checkAuth:", error);
-      set({ authUser: null });
+      set({ authUser: null, token: null });
+      localStorage.removeItem("authToken");
     } finally {
       set({ isCheckingAuth: false });
     }
@@ -46,20 +53,24 @@ export const useAuthStore = create((set, get) => ({
     set({ isLoggingIn: true });
     try {
       const response = await axiosInstance.post("/auth/login", data);
-      set({ authUser: response.data });
+
+      const { token, ...userData } = response.data;
+      set({ authUser: userData, token });
+      localStorage.setItem("authToken", token);
       toast.success("Logged in successfully");
       get().connectSocket();
     } catch (error) {
       toast.error(error.response.data.message);
     } finally {
-      set({ isSignisLoggingIningUp: false });
+      set({ isLoggingIn: false });
     }
   },
 
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
-      set({ authUser: null });
+      set({ authUser: null, token: null });
+      localStorage.removeItem("authToken");
       toast.success("Logged out successfully");
       get().disconnectSocket();
     } catch (error) {
@@ -75,7 +86,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Profile updated successfully");
     } catch (error) {
       console.log("Error in update profile:", error);
-      toast.error("Some error occured");
+      toast.error("Some error occurred");
     } finally {
       set({ isUpdatingProfile: false });
     }
@@ -92,7 +103,7 @@ export const useAuthStore = create((set, get) => ({
     });
     socket.connect();
 
-    set({ socket: socket });
+    set({ socket });
 
     socket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
@@ -100,6 +111,10 @@ export const useAuthStore = create((set, get) => ({
   },
 
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket.disconnect();
+    if (get().socket?.connected) {
+      get().socket.disconnect();
+      set({ socket: null });
+    }
   },
 }));
+
